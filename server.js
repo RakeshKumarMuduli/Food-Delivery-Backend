@@ -3,16 +3,15 @@ const mysql = require('mysql');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const db = require('./userdb'); 
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(bodyParser.json());
+app.use(express.json());
 
 
-const SECRET_KEY = 'your_jwt_secret_key';
+
 
 app.post('/api/register', (req, result) => {
   const { name, email, password } = req.body;
@@ -28,33 +27,36 @@ app.post('/api/register', (req, result) => {
   });
 });
 
-app.post('/api/login',  (req, res) => {
+app.post('/login', (req, res) => {
   const { email, password } = req.body;
-  console.log(email);
-  try {
-    const { rows } =  db.query(`SELECT * FROM users WHERE email ='${email}'`);
 
-    console.log(rows);
-
-    if (!rows || rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
+  const query = 'SELECT name FROM users WHERE email = ? AND password = ?';
+  db.query(query, [email, password], (err, results) => {
+    if (err) {
+      console.error('Error fetching data:', err);
+      return res.status(500).send('Error fetching data');
     }
 
-    const user = rows[0];
-    const validPassword =  bcrypt.compare(password, user.password);
-
-    if (!validPassword) {
-      return res.status(401).json({ message: 'Invalid password' });
+    if (results.length > 0) {
+      res.json({ name: results[0].name });
+    } else {
+      res.status(401).send('Invalid email or password');
     }
-
-    const token = jwt.sign({ id: user.id, email: user.email }, SECRET_KEY, { expiresIn: '1h' });
-    res.status(200).json({ message: 'Login successful', token });
-  } catch (error) {
-    console.error('Error during login:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
+  });
 });
 
+
+app.get('/alldata', (req, res) => {
+  const query = 'SELECT * FROM users';
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching data:', err);
+      return res.status(500).send('Error fetching data');
+    }
+    res.json(results); // Send the retrieved data as JSON
+  });
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
